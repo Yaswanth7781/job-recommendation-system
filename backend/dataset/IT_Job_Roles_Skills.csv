@@ -1,0 +1,11 @@
+job_role,skills
+Machine Learning Engineer,Python, TensorFlow, PyTorch, Scikit-learn, Deep Learning, NLP
+Data Scientist,Python, SQL, Pandas, NumPy, Matplotlib, Statistical Analysis
+Full Stack Developer,JavaScript, React, Node.js, MongoDB, REST APIs, HTML CSS
+DevOps Engineer,Docker, Kubernetes, AWS, CI/CD, Linux, Jenkins
+Backend Developer,Python, Java, Node.js, PostgreSQL, REST APIs, Microservices
+Frontend Developer,JavaScript, React, Vue.js, HTML, CSS, Webpack
+Database Administrator,SQL, MongoDB, PostgreSQL, Database Design, Performance Tuning
+Cloud Architect,AWS, Azure, GCP, Infrastructure, Security, Cost Optimization
+Software Engineer,Java, C++, Python, OOP, Design Patterns, Testing
+QA Engineer,Testing, Selenium, JUnit, Manual Testing, Automation, Test Planning

@@ -1,0 +1,5 @@
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd backend\nltk_service; uvicorn app:app --reload --port 8001"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd backend\tfidf_service; uvicorn app:app --reload --port 8002"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd backend\link_provider_service; uvicorn app:app --reload --port 8010"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd backend\orchestrator_service;  uvicorn app:app --reload --port 9000"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd frontend; npm run dev"

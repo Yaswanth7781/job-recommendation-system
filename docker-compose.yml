@@ -1,0 +1,70 @@
+version: '3.9'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: ai_resume_mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+  nltk_service:
+    build:
+      context: ./backend/nltk_service
+    container_name: ai_resume_nltk
+    restart: always
+    ports:
+      - "8001:8001"
+
+  tfidf_service:
+    build:
+      context: ./backend/tfidf_service
+    container_name: ai_resume_tfidf
+    restart: always
+    ports:
+      - "8002:8002"
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017/
+    depends_on:
+      - mongodb
+
+  link_provider_service:
+    build:
+      context: ./backend/link_provider_service
+    container_name: ai_resume_link_provider
+    restart: always
+    ports:
+      - "8010:8010"
+
+  orchestrator_service:
+    build:
+      context: ./backend/orchestrator_service
+    container_name: ai_resume_orchestrator
+    restart: always
+    ports:
+      - "9000:9000"
+    environment:
+      - NLTK_URL=http://nltk_service:8001
+      - TFIDF_URL=http://tfidf_service:8002
+      - LINK_PROVIDER_URL=http://link_provider_service:8010
+    depends_on:
+      - nltk_service
+      - tfidf_service
+      - link_provider_service
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: ai_resume_frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - orchestrator_service
+
+volumes:
+  mongodb_data:
+    external: true
+    name: mongodb_mongodb_data
