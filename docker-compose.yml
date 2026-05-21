@@ -66,5 +66,4 @@ services:
 
 volumes:
   mongodb_data:
-    external: true
-    name: mongodb_mongodb_data
+    driver: local
