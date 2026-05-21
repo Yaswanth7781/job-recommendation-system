@@ -16,6 +16,7 @@ function JobCard({ item, index, links }) {
   const score = item.score ?? item.similarity_score ?? item.similarity ?? item.cosine_similarity ?? 0
   const title = item.job_role || item.title || 'Unknown Role'
   const jobLinks = links?.search_links || []
+  const suggestions = links?.suggestions || []
 
   return (
     <div className="job-card" style={{ animationDelay: `${index * 0.07}s` }}>
@@ -42,6 +43,17 @@ function JobCard({ item, index, links }) {
               </a>
             ))}
           </div>
+        </div>
+      )}
+
+      {suggestions.length > 0 && (
+        <div className="suggestions-section">
+          <div className="suggestions-label">💡 Related Job Suggestions</div>
+          <ul className="suggestions-list">
+            {suggestions.map((suggestion, i) => (
+              <li key={i} className="suggestion-item">{suggestion}</li>
+            ))}
+          </ul>
         </div>
       )}
     </div>
