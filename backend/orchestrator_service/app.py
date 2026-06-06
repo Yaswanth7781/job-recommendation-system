@@ -48,7 +48,7 @@ async def search(file: UploadFile=File(...), top_k: int=Form(...)):
         nltk_response = requests.post(f'{NLTK_URL}/preprocess_query', json={'text': resume_text})
         cleaned_query = nltk_response.json()['cleaned_text']
         tfidf_response = requests.post(f'{TFIDF_URL}/search_tfidf', json={'query': cleaned_query, 'top_k': top_k})
-        return {'tfidf_results': tfidf_response.json()['results']}
+        return {'tfidf_results': tfidf_response.json()['results'], 'resume_text': resume_text}
     except Exception as e:
         return {'error': str(e), 'message': f'Search failed: {str(e)}'}
 from pydantic import BaseModel
@@ -60,12 +60,17 @@ class JobRequest(BaseModel):
 
 class JobLinksRequest(BaseModel):
     jobs: List[JobRequest]
+    resume_text: str = ""
 LINK_PROVIDER_URL = os.getenv('LINK_PROVIDER_URL', 'http://localhost:8010')
 
 @app.post('/generate_job_links')
 async def generate_job_links(request: JobLinksRequest):
     try:
-        response = requests.post(f'{LINK_PROVIDER_URL}/fetch_links', json={'jobs': [{'title': j.title, 'description': j.description} for j in request.jobs]})
+        payload = {
+            'jobs': [{'title': j.title, 'description': j.description} for j in request.jobs],
+            'resume_text': request.resume_text
+        }
+        response = requests.post(f'{LINK_PROVIDER_URL}/fetch_links', json=payload)
         return response.json()
     except Exception as e:
         return {'error': str(e), 'message': f'Failed to generate links via link provider: {str(e)}'}

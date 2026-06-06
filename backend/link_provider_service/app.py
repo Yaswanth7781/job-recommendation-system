@@ -16,23 +16,30 @@ class JobRequest(BaseModel):
 
 class JobLinksRequest(BaseModel):
     jobs: List[JobRequest]
+    resume_text: str = ""
 
 @app.get('/health')
 def health():
     return {'status': 'ok'}
 
-async def fetch_links_for_job(job: JobRequest):
+async def fetch_links_for_job(job: JobRequest, resume_text: str):
     context = ' '.join(job.description.split()[:15])
     query = f'"{job.title}" job application apply {context}'
 
     def generate_suggestions():
         if not GEMINI_API_KEY:
-            return []
+            return ['API Key missing. Unable to generate suggestions.']
+
+        if not resume_text:
+            return ['No resume text provided.']
 
         prompt_text = (
-            f'You are an AI career assistant. Given the job title "{job.title}" and the description "{job.description}", '
-            'provide up to 5 short, relevant job search suggestions, alternative titles, or related career paths that a candidate should consider. '
-            'Return each suggestion on its own line with no extra commentary.'
+            f'You are an expert AI career coach. The candidate wants to apply for the job role "{job.title}". '
+            f'Here is their resume text:\n{resume_text[:2500]}\n\n'
+            'Provide 3 to 5 short, actionable, and specific suggestions on how the candidate can improve their resume '
+            f'specifically to match the "{job.title}" role. '
+            'Focus on missing keywords, missing skills, or phrasing. '
+            'Return each suggestion on its own line.'
         )
 
         try:
@@ -91,7 +98,7 @@ async def fetch_links_for_job(job: JobRequest):
 @app.post('/fetch_links')
 async def fetch_links(request: JobLinksRequest):
     try:
-        tasks = [fetch_links_for_job(job) for job in request.jobs]
+        tasks = [fetch_links_for_job(job, request.resume_text) for job in request.jobs]
         links = await asyncio.gather(*tasks)
         return {'job_links': links}
     except Exception as e:

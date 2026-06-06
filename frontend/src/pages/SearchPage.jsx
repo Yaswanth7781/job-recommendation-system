@@ -48,7 +48,7 @@ function JobCard({ item, index, links }) {
 
       {suggestions.length > 0 && (
         <div className="suggestions-section">
-          <div className="suggestions-label">💡 Related Job Suggestions</div>
+          <div className="suggestions-label">💡 Resume Improvements for this Role</div>
           <ul className="suggestions-list">
             {suggestions.map((suggestion, i) => (
               <li key={i} className="suggestion-item">{suggestion}</li>
@@ -64,10 +64,10 @@ export default function SearchPage() {
   const [file, setFile] = useState(null)
   const [topK, setTopK] = useState(5)
   const [loading, setLoading] = useState(false)
-  const [loadingLinks, setLoadingLinks] = useState(false)
   const [error, setError] = useState('')
   const [tfidfResults, setTfidfResults] = useState([])
   const [jobLinks, setJobLinks] = useState({})
+  const [loadingLinks, setLoadingLinks] = useState(false)
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef(null)
 
@@ -99,6 +99,7 @@ export default function SearchPage() {
       })
 
       const tfidf = response.data.tfidf_results || []
+      const resumeText = response.data.resume_text || ''
       setTfidfResults(tfidf)
       setLoading(false)
 
@@ -112,8 +113,11 @@ export default function SearchPage() {
       if (jobRequests.length > 0) {
         setLoadingLinks(true)
         try {
-          const linksResponse = await API.post('/generate_job_links', { jobs: jobRequests })
-          const linksData = linksResponse.data.job_links || []
+          const linksResponse = await API.post('/generate_job_links', { 
+            jobs: jobRequests,
+            resume_text: resumeText
+          })
+          const linksData = linksResponse.data?.job_links || []
           const linksMap = {}
           linksData.forEach(l => { linksMap[l.title] = l })
           setJobLinks(linksMap)
