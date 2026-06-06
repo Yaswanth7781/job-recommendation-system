@@ -38,7 +38,7 @@ services:
     ports:
       - "8010:8010"
     environment:
-      - GEMINI_API_KEY=${AIzaSyCEztGiKSN0z3h3pre8o0zGybw9wcJ9Vsk}
+      - GEMINI_API_KEY= replace
 
   orchestrator_service:
     build:
