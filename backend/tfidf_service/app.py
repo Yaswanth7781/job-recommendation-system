@@ -6,7 +6,16 @@ import numpy as np
 from pymongo import MongoClient
 import pickle
 import os
+import math
+
 app = FastAPI()
+
+def normalize_similarity(score: float) -> float:
+    if score <= 0:
+        return 0.0
+    # Apply exponential saturation mapping: 1 - e^(-4.0 * score)
+    normalized = 1.0 - math.exp(-4.0 * score)
+    return min(1.0, max(0.0, normalized))
 import os
 MONGO_URL = os.getenv('MONGO_URL', 'mongodb://localhost:27017/')
 client = MongoClient(MONGO_URL)
@@ -174,7 +183,7 @@ def search_tfidf(data: SearchRequest):
             'job_role': sub_roles[idx],
             'document': sub_docs[idx],
             'company': sub_comps[idx],
-            'score': float(similarities[idx])
+            'score': normalize_similarity(float(similarities[idx]))
         })
     return {'results': results}
 
@@ -203,7 +212,7 @@ def bulk_similarity(data: BulkSearchRequest):
     for idx, r in enumerate(data.resumes):
         results.append({
             'filename': r.filename,
-            'score': float(similarities[idx])
+            'score': normalize_similarity(float(similarities[idx]))
         })
         
     results.sort(key=lambda x: x['score'], reverse=True)
