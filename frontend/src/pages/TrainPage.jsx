@@ -6,12 +6,15 @@ export default function TrainPage() {
 
   // State for Training/Ingestion
   const [file, setFile] = useState(null)
-  const [company, setCompany] = useState('Global')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
   const trainInputRef = useRef(null)
+
+  const userStr = localStorage.getItem('user')
+  const user = userStr ? JSON.parse(userStr) : null
+  const company = user?.company_name || 'Global'
 
   // State for Candidate Screener
   const [screenerFiles, setScreenerFiles] = useState([])
@@ -208,18 +211,24 @@ export default function TrainPage() {
         <>
           <div className="card" style={{ marginBottom: '20px' }}>
             <div style={{ marginBottom: '20px' }}>
-              <label className="form-label" htmlFor="train-company-input">🏢 Company Name</label>
-              <input
-                id="train-company-input"
-                type="text"
-                className="form-input"
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-                placeholder="e.g. Google, Microsoft, Global"
-                style={{ width: '100%', maxWidth: '360px', marginTop: '6px' }}
-              />
-              <div className="card-desc" style={{ marginTop: '6px' }}>
-                Uploading a dataset under an existing company will overwrite that company's jobs.
+              <label className="form-label">🏢 Registered Company</label>
+              <div style={{
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '12px 16px',
+                fontSize: '1rem',
+                color: 'var(--text-primary)',
+                fontWeight: '600',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginTop: '6px'
+              }}>
+                🏢 {company}
+              </div>
+              <div className="card-desc" style={{ marginTop: '8px' }}>
+                Your dataset will be trained and locked specifically for <strong>{company}</strong>.
               </div>
             </div>
 

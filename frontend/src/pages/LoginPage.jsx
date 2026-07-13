@@ -24,7 +24,8 @@ export default function LoginPage() {
       if (response.data?.success) {
         localStorage.setItem('user', JSON.stringify({
           username: response.data.username,
-          role: response.data.role
+          role: response.data.role,
+          company_name: response.data.company_name
         }))
         // Redirect based on role
         if (response.data.role === 'company') {

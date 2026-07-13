@@ -119,6 +119,7 @@ class SignupRequest(BaseModel):
     username: str
     password: str
     role: str
+    company_name: Optional[str] = None
 
 class LoginRequest(BaseModel):
     username: str
@@ -138,9 +139,16 @@ async def signup(request: SignupRequest):
         username = request.username.strip().lower()
         password = request.password
         role = request.role.strip().lower()
+        company_name = request.company_name.strip() if request.company_name else None
         
         if role not in ['candidate', 'company']:
             return JSONResponse(status_code=400, content={'error': 'Invalid role', 'message': 'Role must be either candidate or company'})
+            
+        if role == 'company' and not company_name:
+            return JSONResponse(status_code=400, content={'error': 'Missing company', 'message': 'Company name is required for company recruiters.'})
+            
+        if role == 'candidate':
+            company_name = None
             
         if users_collection.find_one({'username': username}):
             return JSONResponse(status_code=400, content={'error': 'User exists', 'message': 'Username already registered'})
@@ -150,7 +158,8 @@ async def signup(request: SignupRequest):
             'username': username,
             'password_hash': hashed_pwd,
             'salt': salt,
-            'role': role
+            'role': role,
+            'company_name': company_name
         })
         return {'success': True, 'message': 'User registered successfully'}
     except Exception as e:
@@ -174,6 +183,7 @@ async def login(request: LoginRequest):
             'success': True,
             'username': user['username'],
             'role': user['role'],
+            'company_name': user.get('company_name'),
             'message': 'Login successful'
         }
     except Exception as e:

@@ -6,6 +6,7 @@ export default function SignupPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState('candidate')
+  const [companyName, setCompanyName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -17,13 +18,25 @@ export default function SignupPage() {
       setError('Please fill in all fields.')
       return
     }
+    if (role === 'company' && !companyName) {
+      setError('Company name is required for company recruiters.')
+      return
+    }
 
     try {
       setLoading(false)
       setError('')
       setSuccess('')
       setLoading(true)
-      const response = await API.post('/signup', { username, password, role })
+      
+      const payload = {
+        username,
+        password,
+        role,
+        company_name: role === 'company' ? companyName.trim() : null
+      }
+      
+      const response = await API.post('/signup', payload)
       if (response.data?.success) {
         setSuccess('Registration successful! Redirecting to login page...')
         setTimeout(() => {
@@ -81,13 +94,13 @@ export default function SignupPage() {
             />
           </div>
 
-          <div style={{ marginBottom: '24px' }}>
+          <div style={{ marginBottom: '20px' }}>
             <label className="form-label">I am a:</label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '6px' }}>
               <button
                 type="button"
                 className={`btn ${role === 'candidate' ? 'btn-primary' : 'btn-ghost'}`}
-                onClick={() => setRole('candidate')}
+                onClick={() => { setRole('candidate'); setCompanyName('') }}
                 style={{ justifyContent: 'center', padding: '10px' }}
               >
                 👤 Candidate
@@ -102,6 +115,22 @@ export default function SignupPage() {
               </button>
             </div>
           </div>
+
+          {role === 'company' && (
+            <div style={{ marginBottom: '24px' }}>
+              <label className="form-label" htmlFor="signup-company">Company Name</label>
+              <input
+                id="signup-company"
+                type="text"
+                className="form-input"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                placeholder="e.g. Google, Microsoft"
+                style={{ width: '100%', marginTop: '6px' }}
+                required
+              />
+            </div>
+          )}
 
           {error && (
             <div className="alert alert-error" role="alert" style={{ marginBottom: '20px' }}>
