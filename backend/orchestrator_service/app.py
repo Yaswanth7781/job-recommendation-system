@@ -1,14 +1,32 @@
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import pandas as pd
 import requests
 import pdfplumber
 import io
 import os
+import hashlib
+import uuid
+from pymongo import MongoClient
+from typing import Optional, List
+
 NLTK_URL = os.getenv('NLTK_URL', 'http://localhost:8001')
 TFIDF_URL = os.getenv('TFIDF_URL', 'http://localhost:8002')
+
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_credentials=True, allow_methods=['*'], allow_headers=['*'])
+
+MONGO_URL = os.getenv('MONGO_URL', 'mongodb://localhost:27017/')
+db_client = MongoClient(MONGO_URL)
+db = db_client['ai_resume']
+users_collection = db['users']
+
+def hash_password(password: str, salt: str = None) -> tuple:
+    if not salt:
+        salt = uuid.uuid4().hex
+    hashed = hashlib.sha256((password + salt).encode('utf-8')).hexdigest()
+    return hashed, salt
 
 @app.get('/health')
 def health():
@@ -22,7 +40,7 @@ def extract_text_from_pdf(file):
     return text
 
 @app.post('/train')
-async def train(file: UploadFile=File(...)):
+async def train(file: UploadFile=File(...), company: str=Form("Global")):
     try:
         content = await file.read()
         content_str = content.decode('utf-8-sig', errors='replace')
@@ -36,23 +54,66 @@ async def train(file: UploadFile=File(...)):
                 documents.append(skills.strip().strip('"'))
         nltk_response = requests.post(f'{NLTK_URL}/preprocess_dataset', json={'documents': documents})
         cleaned_documents = nltk_response.json()['cleaned_documents']
-        requests.post(f'{TFIDF_URL}/train_tfidf', json={'job_roles': job_roles, 'documents': cleaned_documents})
-        return {'message': 'Training completed successfully'}
+        
+        train_payload = {
+            'job_roles': job_roles,
+            'documents': cleaned_documents,
+            'company': company.strip() or "Global"
+        }
+        requests.post(f'{TFIDF_URL}/train_tfidf', json=train_payload)
+        return {'message': f'Training completed successfully for company "{company.strip() or "Global"}"'}
     except Exception as e:
         return {'error': str(e), 'message': f'Training failed: {str(e)}'}
 
 @app.post('/search')
-async def search(file: UploadFile=File(...), top_k: int=Form(...)):
+async def search(
+    file: Optional[UploadFile] = File(None),
+    top_k: int = Form(...),
+    companies: str = Form(""),
+    query_text: Optional[str] = Form(None)
+):
     try:
-        resume_text = extract_text_from_pdf(file.file)
+        resume_text = ""
+        if file:
+            resume_text = extract_text_from_pdf(file.file)
+        elif query_text:
+            resume_text = query_text
+        else:
+            return JSONResponse(status_code=400, content={'error': 'No input', 'message': 'Please upload a resume file or enter search text.'})
+
         nltk_response = requests.post(f'{NLTK_URL}/preprocess_query', json={'text': resume_text})
         cleaned_query = nltk_response.json()['cleaned_text']
-        tfidf_response = requests.post(f'{TFIDF_URL}/search_tfidf', json={'query': cleaned_query, 'top_k': top_k})
-        return {'tfidf_results': tfidf_response.json()['results'], 'resume_text': resume_text}
+        
+        companies_list = [c.strip() for c in companies.split(',') if c.strip()] if companies else []
+        
+        search_payload = {
+            'query': cleaned_query,
+            'top_k': top_k,
+            'companies': companies_list
+        }
+        tfidf_response = requests.post(f'{TFIDF_URL}/search_tfidf', json=search_payload)
+        return {'tfidf_results': tfidf_response.json().get('results', []), 'resume_text': resume_text}
     except Exception as e:
-        return {'error': str(e), 'message': f'Search failed: {str(e)}'}
+        return JSONResponse(status_code=500, content={'error': str(e), 'message': f'Search failed: {str(e)}'})
+
+@app.get('/companies')
+def get_companies():
+    try:
+        response = requests.get(f'{TFIDF_URL}/companies')
+        return response.json()
+    except Exception as e:
+        return {'error': str(e), 'message': f'Failed to fetch companies: {str(e)}'}
 from pydantic import BaseModel
 from typing import List
+
+class SignupRequest(BaseModel):
+    username: str
+    password: str
+    role: str
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
 class JobRequest(BaseModel):
     title: str
@@ -61,6 +122,54 @@ class JobRequest(BaseModel):
 class JobLinksRequest(BaseModel):
     jobs: List[JobRequest]
     resume_text: str = ""
+
+@app.post('/signup')
+async def signup(request: SignupRequest):
+    try:
+        username = request.username.strip().lower()
+        password = request.password
+        role = request.role.strip().lower()
+        
+        if role not in ['candidate', 'company']:
+            return JSONResponse(status_code=400, content={'error': 'Invalid role', 'message': 'Role must be either candidate or company'})
+            
+        if users_collection.find_one({'username': username}):
+            return JSONResponse(status_code=400, content={'error': 'User exists', 'message': 'Username already registered'})
+            
+        hashed_pwd, salt = hash_password(password)
+        users_collection.insert_one({
+            'username': username,
+            'password_hash': hashed_pwd,
+            'salt': salt,
+            'role': role
+        })
+        return {'success': True, 'message': 'User registered successfully'}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={'error': str(e), 'message': f'Signup failed: {str(e)}'})
+
+@app.post('/login')
+async def login(request: LoginRequest):
+    try:
+        username = request.username.strip().lower()
+        password = request.password
+        
+        user = users_collection.find_one({'username': username})
+        if not user:
+            return JSONResponse(status_code=400, content={'error': 'Invalid credentials', 'message': 'Invalid username or password'})
+            
+        hashed_pwd, _ = hash_password(password, user['salt'])
+        if hashed_pwd != user['password_hash']:
+            return JSONResponse(status_code=400, content={'error': 'Invalid credentials', 'message': 'Invalid username or password'})
+            
+        return {
+            'success': True,
+            'username': user['username'],
+            'role': user['role'],
+            'message': 'Login successful'
+        }
+    except Exception as e:
+        return JSONResponse(status_code=500, content={'error': str(e), 'message': f'Login failed: {str(e)}'})
+
 LINK_PROVIDER_URL = os.getenv('LINK_PROVIDER_URL', 'http://localhost:8010')
 
 @app.post('/generate_job_links')

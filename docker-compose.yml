@@ -38,7 +38,7 @@ services:
     ports:
       - "8010:8010"
     environment:
-      - GEMINI_API_KEY= replace
+      - GROQ_API_KEY=${GROQ_API_KEY}
 
   orchestrator_service:
     build:
@@ -51,7 +51,9 @@ services:
       - NLTK_URL=http://nltk_service:8001
       - TFIDF_URL=http://tfidf_service:8002
       - LINK_PROVIDER_URL=http://link_provider_service:8010
+      - MONGO_URL=mongodb://mongodb:27017/
     depends_on:
+      - mongodb
       - nltk_service
       - tfidf_service
       - link_provider_service

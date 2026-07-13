@@ -1,6 +1,6 @@
 # AI Job Recommendation System
 
-An AI-powered job recommendation platform built on a FastAPI microservices backend and a React client. The system matches user resumes (PDFs) against job roles, ranks them using TF-IDF similarity, fetches live job application links via DuckDuckGo, and dynamically generates related career suggestions using the Gemini API.
+An AI-powered job recommendation platform built on a FastAPI microservices backend and a React client. The system matches user resumes (PDFs) against job roles, ranks them using TF-IDF similarity, fetches live job application links via DuckDuckGo, and dynamically generates related career suggestions using the Groq API.
 
 ---
 
@@ -29,7 +29,7 @@ job-recommendation-system/
 │   │
 │   ├── tfidf_service/          # Fits TF-IDF vectorizer and calculates similarity (Port 8002)
 │   │
-│   ├── link_provider_service/  # Fetches live job links (DDG) & Gemini suggestions (Port 8010)
+│   ├── link_provider_service/  # Fetches live job links (DDG) & Groq suggestions (Port 8010)
 │   │
 │   ├── orchestrator_service/   # API Gateway; coordinates files, flows, and services (Port 9000)
 │   │
@@ -51,7 +51,7 @@ job-recommendation-system/
 | **Orchestrator Service** | `9000` | Main entry point for training and query/search API |
 | **NLTK Preprocessing Service** | `8001` | Tokenizes and cleans natural language text |
 | **TF-IDF Vector Service** | `8002` | Stores job role embeddings & computes cosine similarity |
-| **Link Provider Service** | `8010` | Uses DuckDuckGo search and Gemini LLM for suggestions |
+| **Link Provider Service** | `8010` | Uses DuckDuckGo search and Groq LLM for suggestions |
 | **MongoDB (Local)** | `27017` | Stores job roles and their corresponding TF-IDF vectors |
 
 ---
@@ -82,7 +82,7 @@ Stored within MongoDB to allow persistent and cached job matching:
 4. **Similarity Search**: TF-IDF service computes cosine similarity between the preprocessed resume text vector and the job vectors cached in MongoDB. It returns the top `top_k` matching job roles.
 5. **Real-time Enrichment**: For each top match:
    - **DuckDuckGo Search**: The Link Provider service queries live application links.
-   - **Gemini Recommendations**: The Link Provider service calls the Gemini API to suggest alternative career pathways or related skill focuses.
+   - **Groq Recommendations**: The Link Provider service calls the Groq API to suggest alternative career pathways or related skill focuses.
 6. **Results Delivery**: The React frontend displays the matched jobs with dynamic percentage matches, application buttons, and AI-generated suggestions.
 
 ---
@@ -93,7 +93,7 @@ Stored within MongoDB to allow persistent and cached job matching:
 - Python 3.9+ installed locally
 - Node.js (v18+)
 - MongoDB running locally (default: `localhost:27017`)
-- A **Gemini API Key** (for career suggestions)
+- A **Groq API Key** (for career suggestions)
 
 ---
 
@@ -105,7 +105,7 @@ Stored within MongoDB to allow persistent and cached job matching:
    ```powershell
    ./start_all.ps1
    ```
-   *Note: Ensure you set the `GEMINI_API_KEY` environment variable in your terminal if you want AI suggestions.*
+   *Note: Ensure you set the `GROQ_API_KEY` environment variable in your terminal if you want AI suggestions.*
 
 #### Option B: Step-by-Step Manual Execution
 Run the commands below in individual terminal tabs:
@@ -128,9 +128,9 @@ Run the commands below in individual terminal tabs:
    ```bash
    cd backend/link_provider_service
    pip install -r requirements.txt
-   # Set the Gemini API key environment variable
-   $env:GEMINI_API_KEY="your_api_key_here"  # PowerShell
-   # export GEMINI_API_KEY="your_api_key_here"  # Linux/macOS
+   # Set the Groq API key environment variable
+   $env:GROQ_API_KEY="your_api_key_here"  # PowerShell
+   # export GROQ_API_KEY="your_api_key_here"  # Linux/macOS
    uvicorn app:app --reload --port 8010
    ```
 
@@ -155,9 +155,9 @@ Run the commands below in individual terminal tabs:
 
 To orchestrate all services along with a local MongoDB instance in containerized environments:
 
-1. Create a `.env` file in the root directory containing your Gemini API key:
+1. Create a `.env` file in the root directory containing your Groq API key:
    ```env
-   GEMINI_API_KEY=your_gemini_api_key
+   GROQ_API_KEY=your_groq_api_key
    ```
 2. Build and start all containers:
    ```bash

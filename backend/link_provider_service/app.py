@@ -5,10 +5,10 @@ import requests
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List
-from ddgs import DDGS
+from ddgs import DDGS 
 app = FastAPI()
 
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 
 class JobRequest(BaseModel):
     title: str
@@ -27,7 +27,7 @@ async def fetch_links_for_job(job: JobRequest, resume_text: str):
     query = f'"{job.title}" job application apply {context}'
 
     def generate_suggestions():
-        if not GEMINI_API_KEY:
+        if not GROQ_API_KEY:
             return ['API Key missing. Unable to generate suggestions.']
 
         if not resume_text:
@@ -39,40 +39,56 @@ async def fetch_links_for_job(job: JobRequest, resume_text: str):
             'Provide 3 to 5 short, actionable, and specific suggestions on how the candidate can improve their resume '
             f'specifically to match the "{job.title}" role. '
             'Focus on missing keywords, missing skills, or phrasing. '
-            'Return each suggestion on its own line.'
+            'Output your response strictly as a JSON object with a single key "suggestions" containing an array of strings, where each string is one full suggestion.'
         )
 
         try:
             response = requests.post(
-                f'https://generativelanguage.googleapis.com/v1beta2/models/gemini-1.5-preview/texts:generate?key={GEMINI_API_KEY}',
-                headers={'Content-Type': 'application/json'},
-                json={
-                    'prompt': {'text': prompt_text},
-                    'temperature': 0.4,
-                    'maxOutputTokens': 200
+                'https://api.groq.com/openai/v1/chat/completions',
+                headers={
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {GROQ_API_KEY}'
                 },
-                timeout=15
+                json={
+                    'model': 'llama-3.1-8b-instant',
+                    'messages': [{'role': 'user', 'content': prompt_text}],
+                    'temperature': 0.4,
+                    'max_tokens': 800,
+                    'response_format': {'type': 'json_object'}
+                },
+                timeout=20
             )
             response.raise_for_status()
             result = response.json()
             output_text = ''
-            if isinstance(result.get('candidates'), list) and result['candidates']:
-                output_text = result['candidates'][0].get('output', '')
-            elif isinstance(result.get('output'), str):
-                output_text = result['output']
-            else:
-                output_text = ''
+            
+            if 'choices' in result and len(result['choices']) > 0:
+                output_text = result['choices'][0].get('message', {}).get('content', '')
 
+            if not output_text:
+                return []
+                
+            import json
+            try:
+                suggestions = json.loads(output_text)
+                if isinstance(suggestions, list):
+                    return suggestions[:5]
+                elif isinstance(suggestions, dict) and 'suggestions' in suggestions:
+                    return suggestions['suggestions'][:5]
+            except json.JSONDecodeError:
+                pass
+                
+            # Fallback if json parsing fails
             suggestions = []
             for line in output_text.splitlines():
-                text = line.strip(' -•\t')
+                text = line.strip(' -•*\t[]",')
                 text = re.sub(r'^\d+[\).]\s*', '', text)
-                if text:
+                if len(text) > 5:
                     suggestions.append(text)
             return suggestions[:5]
         except Exception as e:
-            print(f'Gemini suggestion generation failed for {job.title}: {e}')
-            return []
+            print(f'Groq suggestion generation failed for {job.title}: {e}')
+            return [f'Error generating suggestions: {str(e)}']
 
     def do_search():
         search_results = []

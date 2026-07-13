@@ -642,3 +642,44 @@ body::after {
   .card { padding: 20px; }
   .job-card-header { flex-direction: column; }
 }
+
+/* Suggestions Section */
+.suggestions-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.suggestions-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--warning);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.suggestions-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.suggestion-item {
+  position: relative;
+  padding-left: 20px;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.suggestion-item::before {
+  content: '•';
+  position: absolute;
+  left: 6px;
+  top: -1px;
+  color: var(--accent);
+  font-weight: bold;
+}

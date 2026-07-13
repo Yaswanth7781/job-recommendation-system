@@ -3,6 +3,7 @@ import API from '../api'
 
 export default function TrainPage() {
   const [file, setFile] = useState(null)
+  const [company, setCompany] = useState('Global')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -29,6 +30,7 @@ export default function TrainPage() {
       setMessage('')
       const formData = new FormData()
       formData.append('file', file)
+      formData.append('company', company.trim() || 'Global')
       const response = await API.post('/train', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
@@ -54,8 +56,24 @@ export default function TrainPage() {
       </div>
 
       <div className="card" style={{ marginBottom: '20px' }}>
+        <div style={{ marginBottom: '20px' }}>
+          <label className="form-label" htmlFor="train-company-input">🏢 Company Name</label>
+          <input
+            id="train-company-input"
+            type="text"
+            className="form-input"
+            value={company}
+            onChange={(e) => setCompany(e.target.value)}
+            placeholder="e.g. Google, Microsoft, Global"
+            style={{ width: '100%', maxWidth: '360px', marginTop: '6px' }}
+          />
+          <div className="card-desc" style={{ marginTop: '6px' }}>
+            Uploading a dataset under an existing company will overwrite that company's jobs.
+          </div>
+        </div>
+
         <div className="card-title">Upload CSV Dataset</div>
-        <div className="card-desc">Drag and drop or click to browse. Must be a .csv file with job role and description columns.</div>
+        <div className="card-desc" style={{ marginBottom: '16px' }}>Drag and drop or click to browse. Must be a .csv file with job role and skills columns.</div>
 
         <div
           id="train-upload-zone"
