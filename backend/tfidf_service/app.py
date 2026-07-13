@@ -14,6 +14,8 @@ db = client['ai_resume']
 collection = db['job_embeddings']
 VECTORIZER_PATH = 'vectorizer.pkl'
 
+from typing import List
+
 class TrainRequest(BaseModel):
     job_roles: list
     documents: list
@@ -23,6 +25,14 @@ class SearchRequest(BaseModel):
     query: str
     top_k: int = 5
     companies: list = []
+
+class ResumeItem(BaseModel):
+    filename: str
+    text: str
+
+class BulkSearchRequest(BaseModel):
+    job_description: str
+    resumes: List[ResumeItem]
 
 @app.get('/')
 def home():
@@ -41,6 +51,11 @@ def get_companies():
         if collection.count_documents({}) > 0:
             return ['Global']
     return companies
+
+@app.get('/job_roles')
+def get_job_roles():
+    roles = collection.distinct('job_role')
+    return [r for r in roles if r]
 
 cache = {'loaded': False, 'job_roles': [], 'documents': [], 'vectors_np': None, 'companies': []}
 
@@ -161,4 +176,35 @@ def search_tfidf(data: SearchRequest):
             'company': sub_comps[idx],
             'score': float(similarities[idx])
         })
+    return {'results': results}
+
+@app.post('/bulk_similarity')
+def bulk_similarity(data: BulkSearchRequest):
+    if not os.path.exists(VECTORIZER_PATH):
+        return {'error': 'Model not trained'}
+    with open(VECTORIZER_PATH, 'rb') as f:
+        vectorizer = pickle.load(f)
+        
+    if not data.resumes:
+        return {'results': []}
+        
+    # 1. Vectorize the job description query
+    job_vector = vectorizer.transform([data.job_description]).toarray()
+    
+    # 2. Vectorize all candidate resumes
+    resume_texts = [r.text for r in data.resumes]
+    resume_vectors = vectorizer.transform(resume_texts).toarray()
+    
+    # 3. Compute cosine similarities
+    similarities = cosine_similarity(job_vector, resume_vectors)[0]
+    
+    # 4. Format and sort the results
+    results = []
+    for idx, r in enumerate(data.resumes):
+        results.append({
+            'filename': r.filename,
+            'score': float(similarities[idx])
+        })
+        
+    results.sort(key=lambda x: x['score'], reverse=True)
     return {'results': results}

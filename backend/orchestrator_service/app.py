@@ -21,6 +21,7 @@ MONGO_URL = os.getenv('MONGO_URL', 'mongodb://localhost:27017/')
 db_client = MongoClient(MONGO_URL)
 db = db_client['ai_resume']
 users_collection = db['users']
+job_embeddings_collection = db['job_embeddings']
 
 def hash_password(password: str, salt: str = None) -> tuple:
     if not salt:
@@ -103,6 +104,14 @@ def get_companies():
         return response.json()
     except Exception as e:
         return {'error': str(e), 'message': f'Failed to fetch companies: {str(e)}'}
+
+@app.get('/job_roles')
+def get_job_roles():
+    try:
+        response = requests.get(f'{TFIDF_URL}/job_roles')
+        return response.json()
+    except Exception as e:
+        return {'error': str(e), 'message': f'Failed to fetch job roles: {str(e)}'}
 from pydantic import BaseModel
 from typing import List
 
@@ -183,3 +192,58 @@ async def generate_job_links(request: JobLinksRequest):
         return response.json()
     except Exception as e:
         return {'error': str(e), 'message': f'Failed to generate links via link provider: {str(e)}'}
+
+@app.post('/bulk_match')
+async def bulk_match(
+    files: List[UploadFile] = File(...),
+    job_description: Optional[str] = Form(None),
+    job_role: Optional[str] = Form(None)
+):
+    try:
+        target_desc = ""
+        if job_role:
+            # Query the database for the selected job role
+            job_doc = job_embeddings_collection.find_one({'job_role': job_role})
+            if job_doc:
+                target_desc = job_doc['document']
+            else:
+                return JSONResponse(status_code=404, content={'error': 'Not Found', 'message': f'Job role "{job_role}" not found.'})
+        elif job_description:
+            # Clean/preprocess pasted job description
+            nltk_response = requests.post(f'{NLTK_URL}/preprocess_query', json={'text': job_description})
+            target_desc = nltk_response.json()['cleaned_text']
+        else:
+            return JSONResponse(status_code=400, content={'error': 'Invalid Input', 'message': 'Please provide either a job role or a description.'})
+
+        if not files:
+            return JSONResponse(status_code=400, content={'error': 'Invalid Input', 'message': 'Please upload at least one PDF resume.'})
+
+        # Process all uploaded candidate files sequentially
+        resumes_payload = []
+        for file in files:
+            try:
+                # Extract text and run NLTK cleaning
+                text = extract_text_from_pdf(file.file)
+                nltk_resp = requests.post(f'{NLTK_URL}/preprocess_query', json={'text': text})
+                cleaned_text = nltk_resp.json()['cleaned_text']
+                resumes_payload.append({
+                    'filename': file.filename,
+                    'text': cleaned_text
+                })
+            except Exception as pdf_err:
+                print(f"Error parsing resume {file.filename}: {pdf_err}")
+                # Fallback to empty text so other files can still be processed
+                resumes_payload.append({
+                    'filename': file.filename,
+                    'text': ""
+                })
+
+        # Request TF-IDF similarity comparisons
+        payload = {
+            'job_description': target_desc,
+            'resumes': resumes_payload
+        }
+        tfidf_response = requests.post(f'{TFIDF_URL}/bulk_similarity', json=payload)
+        return tfidf_response.json()
+    except Exception as e:
+        return JSONResponse(status_code=500, content={'error': str(e), 'message': f'Bulk matching failed: {str(e)}'})
